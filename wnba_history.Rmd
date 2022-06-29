@@ -9,6 +9,58 @@ date: '2022-06-29'
 library("tidyverse")
 library("rvest")
 library("lubridate")
+library("janitor")
 
 ```
+
+```{r}
+
+url <- "https://www.basketball-reference.com/wnba/years/1997_totals.html"
+page <- read_html(url)
+player_name <- html_nodes(page, "th a") %>%
+  html_text()
+
+player_link <- html_nodes(page, "th a") %>%
+  html_attr("href") %>%
+  str_replace(".html", "/gamelog/1997/")
+
+player_link <- paste0("https://www.basketball-reference.com", player_link)
+
+player_list <- as_tibble(cbind(player_name, player_link))
+
+```
+
+```{r}
+
+url2 <- "https://www.basketball-reference.com/wnba/players/m/maxwean01w/gamelog/1997/"
+
+page2 <- read_html(url2) %>%
+  html_nodes("#fs-sidewall-right-container , #wnba_pgl_basic a , .right , .center") %>%
+  html_text() %>%
+  as_tibble(x = matrix(., ncol = 28, byrow = TRUE)) %>%
+  row_to_names(1) %>%
+  clean_names() %>%
+  filter(date != 'Rk')
+  
+  
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
