@@ -13,37 +13,63 @@ library("janitor")
 
 ```
 
-```{r}
+```{r warning=FALSE}
 
-url <- "https://www.basketball-reference.com/wnba/years/1997_totals.html"
-page <- read_html(url)
-player_name <- html_nodes(page, "th a") %>%
-  html_text()
+years = c(1997:2022)
 
-player_link <- html_nodes(page, "th a") %>%
-  html_attr("href") %>%
-  str_replace(".html", "/gamelog/1997/")
-
-player_link <- paste0("https://www.basketball-reference.com", player_link)
-
-player_list <- as_tibble(cbind(player_name, player_link))
-
-```
-
-```{r}
-
-url2 <- "https://www.basketball-reference.com/wnba/players/m/maxwean01w/gamelog/1997/"
-
-page2 <- read_html(url2) %>%
-  html_nodes("#fs-sidewall-right-container , #wnba_pgl_basic a , .right , .center") %>%
-  html_text() %>%
-  as_tibble(x = matrix(., ncol = 28, byrow = TRUE)) %>%
-  row_to_names(1) %>%
-  clean_names() %>%
-  filter(date != 'Rk')
+for(year in years) {
   
+  url <- paste0("https://www.basketball-reference.com/wnba/years/",year,"_totals.html")
+  page <- read_html(url)
+  player_name <- html_nodes(page, "th a") %>%
+    html_text()
   
+  player_link <- html_nodes(page, "th a") %>%
+    html_attr("href") %>%
+    str_replace(".html", paste0("/gamelog/",year,"/"))
+  
+  player_link <- paste0("https://www.basketball-reference.com", player_link)
+  
+  player_list <- as_tibble(cbind(player_name, player_link))
 
+  regular_season_table <- as_tibble()
+  
+  for(i in 1:nrow(player_list)) {
+    
+    tryCatch({
+  
+    link <- player_list$player_link[i]
+    name <- player_list$player_name[i]
+    
+    game_stats <- read_html(link) %>%
+      html_nodes("#fs-sidewall-right-container , #wnba_pgl_basic a , #wnba_pgl_basic_p a , .right , .center") %>%
+      html_text() %>%
+      as_tibble(x = matrix(., ncol = 28, byrow = TRUE)) %>%
+      row_to_names(1) %>%
+      clean_names() %>%
+      rename(venue = 5, plus_minus = 7) %>%
+      separate(mp, c("minutes","seconds"), sep = ":") %>%
+      filter(date != "Rk",
+             date != "Date") %>%
+      mutate(playoffs = 0,
+             name = name,
+             id = str_split(link, "/")[[1]][7],
+             date = as_date(date),
+             plus_minus = str_extract(plus_minus, "(?<=\\().+?(?=\\))")) %>%
+      mutate_at(c(7:29), as.numeric) %>%
+      replace(is.na(.), 0) %>%
+      select("name","id","date","playoffs",c("age":"gm_sc"))
+    
+    regular_season_table <- rbind(regular_season_table, game_stats) %>%
+      distinct()
+    
+    }, error=function(e){})
+  
+  }
+  
+  write_csv(regular_season_table, paste0("data/regular_season_game_stats_",year,".csv"))
+  
+}
 
 ```
 
